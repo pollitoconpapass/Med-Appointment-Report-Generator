@@ -1,4 +1,3 @@
-import os
 import time
 import random
 import requests
@@ -56,17 +55,20 @@ if file_uploader:
 
         # SUMMARY
         with st.spinner('Creating the Summary PDF...'):
-            path = med_sumy(conversation)
+            pdf_buffer, summary = med_sumy(conversation)
             num = random.randint(3000, 10000)
-            if os.path.exists(path):
-                st.success("Summary created!")
-                st.write(f"Time taken: {time.time() - start} seconds")
 
-                st.download_button(
-                    label="Download Summary",
-                    data=open(path, "rb").read(),
-                    file_name=f"summary_{num}.pdf",
-                    mime="application/pdf"
-                )
+            st.success("Summary created!")
+            st.write(f"Time taken: {time.time() - start} seconds")
+
+            st.text_area("Summary", summary, height=300)
+
+            st.download_button(
+                label="Download Summary as PDF",
+                data=pdf_buffer,
+                file_name=f"summary_{num}.pdf",
+                mime="application/pdf"
+            )
+            
     else:
         st.write("Error:", response.text)

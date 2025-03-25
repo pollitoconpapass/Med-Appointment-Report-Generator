@@ -1,4 +1,4 @@
-import os
+import os, io
 import random
 from fpdf import FPDF
 from openai import AzureOpenAI
@@ -34,42 +34,24 @@ def generate_summary(dialogue):
     )
 
     return response.choices[0].message.content
-
-
-txt_count = 0
-def generate_txt_from_text(text):
-    global txt_count
-
-    txt_count += 1
-    txt_route = f"../docs/summary_{txt_count}.txt"
-    with open(txt_route, "w") as f:
-        f.write(text)
-
-    return txt_route
-
     
 
-def generate_pdf_from_txt(input_file):
-    pdf_count = random.randint(3000, 10000)
-
+def generate_pdf_from_text(text):
     pdf = FPDF()
-    with open(input_file, 'r') as f:
-        text = f.read()
-
     pdf.add_page()
     pdf.set_font('Arial', size=12)
-
     pdf.multi_cell(0, 10, txt=text, align='L')
-    pdf_path = f'../docs/summary_{pdf_count}.pdf'
-
-    pdf.output(pdf_path)
-    return pdf_path
+    
+    # Create PDF in memory
+    pdf_buffer = io.BytesIO()
+    pdf.output(pdf_buffer)
+    pdf_buffer.seek(0)
+    
+    return pdf_buffer
 
 
 def med_sumy(dialogue):
     summary = generate_summary(dialogue)
-    txt_route = generate_txt_from_text(summary)
-    pdf_path = generate_pdf_from_txt(txt_route)
+    pdf_buffer = generate_pdf_from_text(summary)
 
-    os.remove(txt_route)
-    return pdf_path
+    return pdf_buffer, summary
