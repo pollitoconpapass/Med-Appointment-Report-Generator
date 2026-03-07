@@ -1,6 +1,0 @@
-fastapi==.108.0
-streamlit==1.31.0
-assemblyai==0.22.0
-uvicorn==0.25.0
-openai==1.8.0
-spacy==3.7.4
