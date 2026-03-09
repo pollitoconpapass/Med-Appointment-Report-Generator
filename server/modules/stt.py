@@ -24,7 +24,7 @@ class WhisperSTT:
                 language=language,
                 temperature=0.0
             )
-            return json.dumps(transcription, indent=2, default=str)
+            return transcription.text
         finally:
             if close_file:
                 file.close()
