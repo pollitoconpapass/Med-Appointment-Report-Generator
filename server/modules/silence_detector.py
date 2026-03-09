@@ -34,7 +34,7 @@ class SilenceDetector:
         )
         return speech_timestamps
     
-    def detect_silence(self, audio_path, seconds=5):
+    def detect_silence(self, audio_path, seconds=2):
         speech_timestamps = self.get_timestamps(audio_path)
         silence_periods = []
         

@@ -3,6 +3,8 @@ import io
 import json
 import uuid
 import torch
+import asyncio
+import numpy as np
 from typing import Dict
 from scipy.io import wavfile
 from datetime import datetime
@@ -11,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from modules.llm import GroqLLM
 from modules.stt import WhisperSTT
@@ -96,14 +99,17 @@ async def generate_report(data: dict):
     if not transcript:
         raise HTTPException(status_code=400, detail="Transcript is required")
     
-    transcript_text = "\n".join([item.get("text", "") for item in transcript])
-    
     async def generate():
-        for chunk in groq_llm.llm(transcript_text, is_full=True):
-            yield f"data: {json.dumps({'content': chunk})}\n\n"
-        yield f"data: {json.dumps({'done': True})}\n\n"
+        try:
+            for chunk in groq_llm.llm(transcript, is_full=True):
+                if chunk:
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except Exception as e:
+            print(f"Error in LLM generation: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
     
-    return generate()
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 # ===== WEB SOCKETS =====
@@ -116,33 +122,46 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
     session = sessions[session_id]
     await websocket.accept()
     
-    silence_threshold = 5
-    overlap_seconds = 2
-    
+    silence_threshold = 2
     accumulated_audio = None
     
     try:
         while True:
             data = await websocket.receive_bytes()
             
-            # Convert WebM to audio tensor
-            audio_tensor = process_webm_bytes(data, session.sample_rate)
+            # Append to session-specific webm buffer
+            session.webm_buffer.extend(data)
             
-            if audio_tensor is None:
-                await websocket.send_json({"type": "error", "message": "Failed to process audio"})
+            # Convert WebM to audio tensor using the full buffer
+            # Run in thread to avoid blocking the event loop heartbeats
+            full_audio_tensor = await asyncio.to_thread(
+                process_webm_bytes, bytes(session.webm_buffer), session_id, session.sample_rate
+            )
+            
+            if full_audio_tensor is None:
                 continue
             
-            # Append to accumulated audio
+            # Extract only the new part
+            current_total_samples = full_audio_tensor.shape[1]
+            new_samples_count = current_total_samples - session.last_processed_samples
+            
+            if new_samples_count <= 0:
+                continue
+                
+            audio_tensor = full_audio_tensor[:, session.last_processed_samples:]
+            session.last_processed_samples = current_total_samples
+            
+            # Append to accumulated audio (used for VAD and transcription)
             if accumulated_audio is None:
                 accumulated_audio = audio_tensor
             else:
                 accumulated_audio = torch.cat([accumulated_audio, audio_tensor], dim=1)
             
-            # Run VAD on accumulated audio
-            timestamps = silence_detector.get_timestamps_from_tensor(accumulated_audio, session.sample_rate)
-            
-            # Check for silence gaps
+            # Run VAD in thread
             current_audio_duration = accumulated_audio.shape[1] / session.sample_rate
+            timestamps = await asyncio.to_thread(
+                silence_detector.get_timestamps_from_tensor, accumulated_audio, session.sample_rate
+            )
             
             if len(timestamps) > 0:
                 last_timestamp = timestamps[-1]
@@ -152,46 +171,42 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                 silence_since_speech = current_audio_duration - speech_end
                 
                 if silence_since_speech >= silence_threshold:
-                    # Create chunk with overlap
-                    chunk_start = max(0, speech_end - overlap_seconds)
-                    chunk_end = current_audio_duration
+                    print(f"Silence threshold met ({silence_since_speech}s), transcribing...")
                     
-                    # Extract chunk
-                    start_sample = int(chunk_start * session.sample_rate)
-                    end_sample = int(chunk_end * session.sample_rate)
-                    audio_chunk = accumulated_audio[:, start_sample:end_sample]
+                    # Extract full accumulated chunk
+                    audio_chunk = accumulated_audio
                     
                     # Save to BytesIO (in-memory) and transcribe
                     audio_buffer = io.BytesIO()
                     audio_np = audio_chunk.squeeze().numpy()
-                    wavfile.write(audio_buffer, session.sample_rate, audio_np)
+                    
+                    # Convert to 16-bit PCM for broader compatibility
+                    audio_int16 = (audio_np * 32767).astype(np.int16)
+                    wavfile.write(audio_buffer, session.sample_rate, audio_int16)
                     audio_buffer.seek(0)
+                    audio_buffer.name = "audio.wav"
                     
-                    result = whisper_stt.stt(audio_buffer, language=session.language)
-                    result_dict = json.loads(result)
-                    text = result_dict.get("text", "")
+                    # Run STT in thread
+                    result = await asyncio.to_thread(
+                        whisper_stt.stt, audio_buffer, language=session.language
+                    )
                     
-                    if text.strip():
+                    if result and result.strip():
                         session.transcript.append({
-                            "text": text,
-                            "timestamp": chunk_start,
-                            "chunk_start": chunk_start,
-                            "chunk_end": chunk_end
+                            "text": result,
+                            "timestamp": 0,
+                            "chunk_start": 0,
+                            "chunk_end": current_audio_duration
                         })
                         
                         await websocket.send_json({
                             "type": "transcript",
-                            "text": text,
-                            "timestamp": chunk_start
+                            "text": result,
+                            "timestamp": 0
                         })
                     
-                    # Reset accumulated audio (keep a small buffer for overlap)
-                    keep_duration = overlap_seconds + 1
-                    keep_samples = int(keep_duration * session.sample_rate)
-                    if accumulated_audio.shape[1] > keep_samples:
-                        accumulated_audio = accumulated_audio[:, -keep_samples:]
-                    else:
-                        accumulated_audio = None
+                    # Reset accumulated audio
+                    accumulated_audio = None
             
             await websocket.send_json({
                 "type": "ack",
@@ -200,10 +215,16 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
             })
             
     except WebSocketDisconnect:
-        pass
+        print("WebSocket connection closed")
     except Exception as e:
+        print(f"Error in websocket_audio: {e}")
+
         try:
             await websocket.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
-        await websocket.close(code=1011)
+        
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
