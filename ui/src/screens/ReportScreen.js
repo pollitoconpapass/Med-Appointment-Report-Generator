@@ -6,7 +6,7 @@ export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
   const reportRef = useRef("");
 
   const handleSave = () => {
-    const content = reportRef.current;
+    const content = isGeneratingReport ? reportText : reportRef.current;
     console.log("Saving report:", content);
     alert("Report saved!");
   };
@@ -20,18 +20,29 @@ export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
           : "Review and edit the medical report"}
       </p>
       <div className="editor-container">
-        <MilkdownProvider>
-          <MilkdownEditor
-            content={reportText}
-            onChange={(markdown) => {
-              reportRef.current = markdown;
-              onChange(markdown);
-            }}
-          />
-        </MilkdownProvider>
+        {isGeneratingReport ? (
+          <div className="streaming-content">
+            {reportText}
+          </div>
+        ) : (
+          <MilkdownProvider>
+            <MilkdownEditor
+              content={reportText}
+              onChange={(markdown) => {
+                reportRef.current = markdown;
+                onChange(markdown);
+              }}
+            />
+          </MilkdownProvider>
+        )}
       </div>
       <div className="action-buttons">
-        <button className="save-button" onClick={handleSave}>
+        <button 
+          className="save-button" 
+          onClick={handleSave}
+          disabled={isGeneratingReport}
+          style={{ opacity: isGeneratingReport ? 0.5 : 1 }}
+        >
           Save Report
         </button>
       </div>

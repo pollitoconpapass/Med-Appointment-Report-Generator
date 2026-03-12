@@ -252,6 +252,81 @@ body {
   border-radius: 12px;
   min-height: 400px;
   overflow: hidden;
+  background: #f9fbff;
+}
+
+.streaming-content {
+  padding: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  min-height: 350px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.transcript-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.transcript-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 85%;
+}
+
+.transcript-item.speaker-a {
+  align-self: flex-start;
+}
+
+.transcript-item.speaker-b {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.speaker-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.bubble-editor {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: none;
+  background: white;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.speaker-a .bubble-editor {
+  border-left: 5px solid var(--primary);
+  border-bottom-left-radius: 4px;
+}
+
+.speaker-b .bubble-editor {
+  border-right: 5px solid var(--success);
+  border-bottom-right-radius: 4px;
+  text-align: right;
+}
+
+.bubble-editor:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .editor-textarea {
@@ -336,6 +411,46 @@ body {
 
 .milkdown .ProseMirror p {
   margin: 0.5rem 0;
+}
+
+/* Fix lists in Milkdown and general areas */
+.milkdown ul,
+.milkdown ol,
+.streaming-content ul,
+.streaming-content ol {
+  padding-left: 1.5rem !important;
+  margin: 1rem 0 !important;
+  list-style-position: outside !important;
+}
+
+.milkdown ul,
+.streaming-content ul {
+  list-style-type: disc !important;
+}
+
+.milkdown ol,
+.streaming-content ol {
+  list-style-type: decimal !important;
+}
+
+.milkdown li,
+.streaming-content li {
+  margin: 0.5rem 0 !important;
+  display: list-item !important;
+  padding-left: 0.25rem !important;
+}
+
+/* Ensure paragraph inside li doesn't add extra margin which breaks alignment */
+.milkdown li p,
+.streaming-content li p {
+  margin: 0 !important;
+  display: inline;
+}
+
+/* Ensure list items are correctly aligned */
+.milkdown .list-item_body,
+.milkdown .list-item_label {
+  display: inline;
 }
 
 /* Loading state */
