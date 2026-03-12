@@ -27,7 +27,7 @@ class GroqLLM:
             model=self.model,
             temperature=0.1,
             top_p=1,
-            max_completion_tokens=1024,
+            max_completion_tokens=8192,
             stop=None,
             stream=True,
         )
