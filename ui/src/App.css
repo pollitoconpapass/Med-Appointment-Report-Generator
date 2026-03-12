@@ -215,11 +215,53 @@ body {
   margin: 1rem 0;
 }
 
+.listening-text.paused {
+  color: var(--text-secondary);
+}
+
 .transcript-preview {
   color: var(--text-secondary);
   font-size: 0.9rem;
   min-height: 1.5em;
   word-wrap: break-word;
+}
+
+.recording-controls {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.pause-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  background: var(--text-secondary);
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+.pause-button:hover {
+  transform: translateY(-2px);
+  background: #555;
+}
+
+.pause-button.resuming {
+  background: var(--primary);
+}
+
+.pause-button.resuming:hover {
+  background: var(--primary-dark);
 }
 
 .end-button {
