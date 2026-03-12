@@ -44,6 +44,7 @@ function AppContent() {
   const [language, setLanguage] = useState("en");
   const [transcript, setTranscript] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportText, setReportText] = useState("");
@@ -55,6 +56,11 @@ function AppContent() {
   const animationFrameRef = useRef(null);
 
   const reportRef = useRef("");
+  const isPausedRef = useRef(false);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   useEffect(() => {
     return () => {
@@ -116,7 +122,8 @@ function AppContent() {
       mediaRecorderRef.current.ondataavailable = async (event) => {
         if (
           event.data.size > 0 &&
-          wsRef.current?.readyState === WebSocket.OPEN
+          wsRef.current?.readyState === WebSocket.OPEN &&
+          !isPausedRef.current
         ) {
           wsRef.current.send(event.data);
         }
@@ -274,6 +281,8 @@ function AppContent() {
             element={
               <RecordingScreen
                 isRecording={isRecording}
+                isPaused={isPaused}
+                setIsPaused={setIsPaused}
                 audioLevel={audioLevel}
                 transcript={transcript}
                 onEnd={endAppointment}
@@ -289,6 +298,7 @@ function AppContent() {
                       .getTracks()
                       .forEach((track) => track.stop());
                   }
+                  setIsPaused(false);
                   navigate("/");
                 }}
               />
