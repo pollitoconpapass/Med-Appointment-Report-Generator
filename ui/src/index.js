@@ -2,135 +2,34 @@ import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./App.css";
-
-import { MilkdownProvider } from "@milkdown/react";
-import "@milkdown/crepe/theme/common/style.css";
-
 import { API_URL, WS_URL } from "./constants";
-import { MilkdownEditor } from "./components/MilkdownEditor";
+import { StartScreen } from "./screens/StartScreen";
+import { RecordingScreen } from "./screens/RecordingScreen";
+import { TranscriptScreen } from "./screens/TranscriptScreen";
+import { ReportScreen } from "./screens/ReportScreen";
 
-const StartScreen = ({ language, setLanguage, onStart }) => {
-  return (
-    <div className="start-screen">
-      <div className="language-selector">
-        <label>Language:</label>
-        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-          <option value="en">English</option>
-          <option value="es">Spanish</option>
-        </select>
-      </div>
-      <button className="start-button" onClick={onStart}>
-        Start Recording
-      </button>
-    </div>
-  );
-};
-
-const RecordingScreen = ({ isRecording, audioLevel, transcript, onEnd }) => {
-  return (
-    <div className="recording-screen">
-      <div className="audio-visualizer">
-        <div className="visualizer-bars">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="bar"
-              style={{
-                height: `${Math.max(10, audioLevel * 100 * Math.random())}%`,
-                animationDelay: `${i * 0.05}s`,
-              }}
-            />
-          ))}
-        </div>
-        <p className="listening-text">
-          {isRecording ? "Listening..." : "Starting..."}
-        </p>
-        <p className="transcript-preview">
-          {transcript
-            .map((t) => t.text)
-            .join(" ")
-            .slice(-100)}
-        </p>
-      </div>
-
-      <button className="end-button" onClick={onEnd}>
-        <span className="hangup-icon">📞</span>
-        End Appointment
-      </button>
-    </div>
-  );
-};
-
-const TranscriptScreen = ({ transcript, onGenerate }) => {
-  const transcriptRef = useRef("");
-
-  const getTranscriptText = () => {
-    return transcript.map((item) => item.text).join("\n\n");
-  };
-
-  return (
-    <div className="transcript-screen">
-      <h2>Edit Transcript</h2>
-      <p className="hint">
-        Review and edit the transcript before generating the report
-      </p>
-      <div className="editor-container">
-        <textarea
-          className="editor-textarea"
-          defaultValue={getTranscriptText()}
-          onChange={(e) => {
-            transcriptRef.current = e.target.value
-              .split("\n\n")
-              .filter((t) => t.trim());
-          }}
-          rows={15}
-        />
-      </div>
-      <div className="action-buttons">
-        <button className="generate-button" onClick={onGenerate}>
-          Generate Report →
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
-  const reportRef = useRef("");
-
-  const handleSave = () => {
-    const content = reportRef.current;
-    console.log("Saving report:", content);
-    alert("Report saved!");
-  };
-
-  return (
-    <div className="report-screen">
-      <h2>Medical Report</h2>
-      <p className="hint">
-        {isGeneratingReport
-          ? "Generating report..."
-          : "Review and edit the medical report"}
-      </p>
-      <div className="editor-container">
-        <MilkdownProvider>
-          <MilkdownEditor
-            content={reportText}
-            onChange={(markdown) => {
-              reportRef.current = markdown;
-              onChange(markdown);
-            }}
-          />
-        </MilkdownProvider>
-      </div>
-      <div className="action-buttons">
-        <button className="save-button" onClick={handleSave}>
-          Save Report
-        </button>
-      </div>
-    </div>
-  );
-};
+// Suppress the ResizeObserver loop error which is a common, harmless issue in some editors
+window.addEventListener("error", (e) => {
+  if (
+    e.message ===
+    "ResizeObserver loop completed with undelivered notifications."
+  ) {
+    const resizeObserverErrDiv = document.getElementById(
+      "webpack-dev-server-client-overlay-div",
+    );
+    const resizeObserverErr = document.getElementById(
+      "webpack-dev-server-client-overlay",
+    );
+    if (resizeObserverErrDiv) {
+      resizeObserverErrDiv.setAttribute("style", "display: none");
+    }
+    if (resizeObserverErr) {
+      resizeObserverErr.setAttribute("style", "display: none");
+    }
+    // Prevent the error from showing up in the console
+    e.stopImmediatePropagation();
+  }
+});
 
 function App() {
   const [screen, setScreen] = useState("start");
@@ -148,7 +47,6 @@ function App() {
   const audioContextRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-  const transcriptRef = useRef("");
   const reportRef = useRef("");
 
   useEffect(() => {
@@ -224,7 +122,11 @@ function App() {
         if (data.type === "transcript") {
           setTranscript((prev) => [
             ...prev,
-            { text: data.text, timestamp: data.timestamp },
+            {
+              text: data.text,
+              timestamp: data.timestamp,
+              speaker: data.speaker,
+            },
           ]);
         } else if (data.type === "ack") {
           updateAudioVisualization();
@@ -288,13 +190,7 @@ function App() {
     }
   };
 
-  const saveTranscriptAndGenerateReport = async () => {
-    const editedTranscript = transcript.map((item, index) => ({
-      ...item,
-      text: transcriptRef.current[index] || item.text,
-    }));
-
-    setTranscript(editedTranscript);
+  const handleGenerateReport = async (finalTranscriptContent) => {
     setScreen("report");
     setIsGeneratingReport(true);
     setReportText("");
@@ -304,7 +200,7 @@ function App() {
       const response = await fetch(`${API_URL}/report/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: editedTranscript }),
+        body: JSON.stringify({ transcript: finalTranscriptContent }),
       });
 
       const reader = response.body.getReader();
@@ -367,7 +263,7 @@ function App() {
         {screen === "transcript" && (
           <TranscriptScreen
             transcript={transcript}
-            onGenerate={saveTranscriptAndGenerateReport}
+            onGenerate={handleGenerateReport}
           />
         )}
 
