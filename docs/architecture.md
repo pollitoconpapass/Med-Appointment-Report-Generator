@@ -12,7 +12,7 @@ Document to explain this project's architecture and flow.
 - Detect 3 seconds of silence and generate a chunk (silero-vad)
 - Add a 2s overlap from previous
 - Medical report generation with GPT-OSS LLM(via Groq)
-- Editable report from the frontend (Milkdown)
+- Editable report from the frontend (TipTap)
 
 ## Project Flow
 
@@ -35,9 +35,8 @@ Microphone Input
       ↓
  Structured Medical Report (Markdown format)
       ↓
- Editable Report UI  ←— doctor reviews, edits, saves (using Mildown)
-```
-
+ Editable Report UI  ←— doctor reviews, edits, saves (using TipTap)
+ ```
 ## Project Plan
 
 ### Websocket: `/ws/audio`

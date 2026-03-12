@@ -1,6 +1,5 @@
 import { useRef } from "react";
-import { MilkdownProvider } from "@milkdown/react";
-import { MilkdownEditor } from "../components/MilkdownEditor";
+import { TiptapEditor } from "../components/TiptapEditor";
 
 export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
   const reportRef = useRef("");
@@ -21,24 +20,20 @@ export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
       </p>
       <div className="editor-container">
         {isGeneratingReport ? (
-          <div className="streaming-content">
-            {reportText}
-          </div>
+          <div className="streaming-content">{reportText}</div>
         ) : (
-          <MilkdownProvider>
-            <MilkdownEditor
-              content={reportText}
-              onChange={(markdown) => {
-                reportRef.current = markdown;
-                onChange(markdown);
-              }}
-            />
-          </MilkdownProvider>
+          <TiptapEditor
+            content={reportText}
+            onChange={(markdown) => {
+              reportRef.current = markdown;
+              onChange(markdown);
+            }}
+          />
         )}
       </div>
       <div className="action-buttons">
-        <button 
-          className="save-button" 
+        <button
+          className="save-button"
           onClick={handleSave}
           disabled={isGeneratingReport}
           style={{ opacity: isGeneratingReport ? 0.5 : 1 }}
