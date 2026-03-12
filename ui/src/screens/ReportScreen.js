@@ -1,7 +1,12 @@
 import { useRef } from "react";
 import { TiptapEditor } from "../components/TiptapEditor";
 
-export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
+export const ReportScreen = ({
+  reportText,
+  isGeneratingReport,
+  onChange,
+  onBack,
+}) => {
   const reportRef = useRef("");
 
   const handleSave = () => {
@@ -12,7 +17,16 @@ export const ReportScreen = ({ reportText, isGeneratingReport, onChange }) => {
 
   return (
     <div className="report-screen">
-      <h2>Medical Report</h2>
+      <div className="screen-header">
+        <button
+          className="back-button"
+          onClick={onBack}
+          disabled={isGeneratingReport}
+        >
+          ← Back
+        </button>
+        <h2>Medical Report</h2>
+      </div>
       <p className="hint">
         {isGeneratingReport
           ? "Generating report..."

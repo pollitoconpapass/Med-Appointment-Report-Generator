@@ -3,9 +3,29 @@ export const RecordingScreen = ({
   audioLevel,
   transcript,
   onEnd,
+  onBack,
 }) => {
+  const handleBack = () => {
+    if (
+      isRecording &&
+      !window.confirm(
+        "Are you sure you want to go back? The recording will be lost.",
+      )
+    ) {
+      return;
+    }
+    onBack();
+  };
+
   return (
     <div className="recording-screen">
+      <div className="screen-header">
+        <button className="back-button" onClick={handleBack}>
+          ← Back
+        </button>
+        <h2>Recording Session</h2>
+      </div>
+
       <div className="audio-visualizer">
         <div className="visualizer-bars">
           {[...Array(20)].map((_, i) => (

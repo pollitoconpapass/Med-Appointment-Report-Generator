@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export const TranscriptScreen = ({ transcript, onGenerate }) => {
+export const TranscriptScreen = ({ transcript, onGenerate, onBack }) => {
   const [items, setItems] = useState([]);
 
   // Initialize items from transcript prop
@@ -46,7 +46,12 @@ export const TranscriptScreen = ({ transcript, onGenerate }) => {
 
   return (
     <div className="transcript-screen">
-      <h2>Edit Transcript</h2>
+      <div className="screen-header">
+        <button className="back-button" onClick={onBack}>
+          ← Back
+        </button>
+        <h2>Edit Transcript</h2>
+      </div>
       <p className="hint">
         Review and edit the conversation blocks before generating the report
       </p>
