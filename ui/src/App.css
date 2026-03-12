@@ -224,37 +224,6 @@ body {
   transform: rotate(135deg);
 }
 
-/* Transcript & Report Screens */
-.transcript-screen,
-.report-screen {
-  width: 100%;
-  max-width: 1000px;
-  background: var(--surface);
-  border-radius: 20px;
-  padding: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
-.transcript-screen h2,
-.report-screen h2 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text);
-  font-size: 1.75rem;
-}
-
-.hint {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-}
-
-.editor-container {
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  min-height: 400px;
-  overflow: hidden;
-  background: #f9fbff;
-}
-
 .streaming-content {
   padding: 1.5rem;
   font-size: 1rem;
@@ -397,60 +366,67 @@ body {
   box-shadow: 0 6px 25px rgba(56, 142, 60, 0.5);
 }
 
-/* Milkdown overrides */
-.milkdown .editor {
+/* TipTap Editor Styles */
+.tiptap-container {
   padding: 1.5rem;
   font-size: 1rem;
   line-height: 1.6;
+  height: 100%;
 }
 
-.milkdown .ProseMirror {
+.prose-mirror-editor {
   min-height: 350px;
   outline: none;
 }
 
-.milkdown .ProseMirror p {
+.prose-mirror-editor p {
   margin: 0.5rem 0;
 }
 
-/* Fix lists in Milkdown and general areas */
-.milkdown ul,
-.milkdown ol,
+.prose-mirror-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.prose-mirror-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.prose-mirror-editor li {
+  display: list-item;
+  margin: 0.25rem 0;
+}
+
+.prose-mirror-editor li > p {
+  display: inline;
+  margin: 0;
+}
+
+/* Streaming content lists (keeping consistent with editor) */
 .streaming-content ul,
 .streaming-content ol {
-  padding-left: 1.5rem !important;
-  margin: 1rem 0 !important;
-  list-style-position: outside !important;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
 }
 
-.milkdown ul,
 .streaming-content ul {
-  list-style-type: disc !important;
+  list-style-type: disc;
 }
 
-.milkdown ol,
 .streaming-content ol {
-  list-style-type: decimal !important;
+  list-style-type: decimal;
 }
 
-.milkdown li,
 .streaming-content li {
-  margin: 0.5rem 0 !important;
-  display: list-item !important;
-  padding-left: 0.25rem !important;
+  margin: 0.25rem 0;
 }
 
-/* Ensure paragraph inside li doesn't add extra margin which breaks alignment */
-.milkdown li p,
-.streaming-content li p {
-  margin: 0 !important;
+.streaming-content li > p {
   display: inline;
-}
-
-/* Ensure list items are correctly aligned */
-.milkdown .list-item_body,
-.milkdown .list-item_label {
-  display: inline;
+  margin: 0;
 }
 
 /* Loading state */
