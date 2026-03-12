@@ -104,7 +104,7 @@ async def generate_report(data: dict):
     
     async def generate():
         try:
-            for chunk in groq_llm.llm(transcript, is_full=True):
+            for chunk in groq_llm.llm(transcript):
                 if chunk:
                     yield f"data: {json.dumps({'content': chunk})}\n\n"
             yield f"data: {json.dumps({'done': True})}\n\n"

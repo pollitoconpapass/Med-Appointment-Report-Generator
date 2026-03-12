@@ -8,17 +8,16 @@ class GroqLLM:
         self.model='openai/gpt-oss-20b'
         prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompts')
         self.full_prompt=open(os.path.join(prompts_dir, 'full-report-generator.txt'), 'r').read()
-        self.partial_prompt=open(os.path.join(prompts_dir, 'partial-report-generator.txt'), 'r').read()
 
 
-    def llm(self, content, prev_content=None, is_full=False):
-        user_content = 'Transcription:\n\n' + content if is_full else 'Transcription:\n\n' + content + '\n\nPrevious Transcription:\n\n' + prev_content
+    def llm(self, content):
+        user_content = 'Transcription:\n\n' + content
 
         stream = self.client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": self.full_prompt if is_full else self.partial_prompt,
+                    "content": self.full_prompt,
                 },
                 {
                     "role": "user",

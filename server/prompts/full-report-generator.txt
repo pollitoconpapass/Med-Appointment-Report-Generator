@@ -8,4 +8,4 @@ You are a medical assistant. Given the following doctor-patient appointment tran
     - Key notes
 
 
-Make the report in the same language as the conversation.
+Make the report in the same language as the conversation and DO NOT use tables, try lists with bullet points instead.
