@@ -1,5 +1,6 @@
 import os
 import io
+import time
 import json
 import uuid
 import torch
@@ -19,6 +20,7 @@ from modules.llm import GroqLLM
 from modules.stt import WhisperSTT
 from models.audio_session import Session
 from modules.silence_detector import SilenceDetector
+from modules.speaker_diarization import SpeakerDiarization
 from utils.processors import process_webm_bytes
 
 load_dotenv('../.env')
@@ -30,6 +32,7 @@ sessions: Dict[str, Session] = {}
 silence_detector = SilenceDetector()
 whisper_stt = WhisperSTT(api_key=os.getenv("GROQ_API_KEY"))
 groq_llm = GroqLLM(api_key=os.getenv("GROQ_API_KEY"))
+speaker_diarization = SpeakerDiarization(api_key=os.getenv("HUGGING_FACE_API_KEY"))
 
 
 @asynccontextmanager
@@ -130,9 +133,12 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
             data = await websocket.receive_bytes()
             
             # Append to session-specific webm buffer
+            if session.webm_header is None:
+                session.webm_header = data
+            
             session.webm_buffer.extend(data)
             
-            # Convert WebM to audio tensor using the full buffer
+            # Convert WebM to audio tensor using the current buffer
             # Run in thread to avoid blocking the event loop heartbeats
             full_audio_tensor = await asyncio.to_thread(
                 process_webm_bytes, bytes(session.webm_buffer), session_id, session.sample_rate
@@ -143,6 +149,11 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
             
             # Extract only the new part
             current_total_samples = full_audio_tensor.shape[1]
+            
+            # If this is the first successful decode and we just have the header, record its sample count
+            if session.header_samples == 0 and session.webm_header is not None and len(session.webm_buffer) == len(session.webm_header):
+                session.header_samples = current_total_samples
+
             new_samples_count = current_total_samples - session.last_processed_samples
             
             if new_samples_count <= 0:
@@ -171,7 +182,8 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                 silence_since_speech = current_audio_duration - speech_end
                 
                 if silence_since_speech >= silence_threshold:
-                    print(f"Silence threshold met ({silence_since_speech}s), transcribing...")
+                    print(f"\nSilence threshold met ({silence_since_speech}s), transcribing...")
+                    start_time = time.time()
                     
                     # Extract full accumulated chunk
                     audio_chunk = accumulated_audio
@@ -191,8 +203,27 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                         whisper_stt.stt, audio_buffer, language=session.language
                     )
                     
+                    # Run Diarization in thread
+                    diarization_result = await asyncio.to_thread(
+                        speaker_diarization.diarize, audio_chunk, session.sample_rate
+                    )
+                    
+                    # Determine the primary speaker for this chunk
+                    speaker = "Unknown"
+                    if diarization_result:
+                        # Pick the speaker with the longest duration in this chunk
+                        speaker_durations = {}
+                        for segment in diarization_result:
+                            s = segment["speaker"]
+                            d = segment["end"] - segment["start"]
+                            speaker_durations[s] = speaker_durations.get(s, 0) + d
+                        
+                        if speaker_durations:
+                            speaker = max(speaker_durations, key=speaker_durations.get)
+                    
                     if result and result.strip():
                         session.transcript.append({
+                            "speaker": speaker,
                             "text": result,
                             "timestamp": 0,
                             "chunk_start": 0,
@@ -201,12 +232,20 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                         
                         await websocket.send_json({
                             "type": "transcript",
+                            "speaker": speaker,
                             "text": result,
                             "timestamp": 0
                         })
+
+                    print(f"Transcription and diarization completed in {time.time() - start_time} seconds\n")
                     
                     # Reset accumulated audio
                     accumulated_audio = None
+
+                    # Reset webm_buffer to header only to keep it small
+                    if session.webm_header is not None:
+                        session.webm_buffer = bytearray(session.webm_header)
+                        session.last_processed_samples = session.header_samples
             
             await websocket.send_json({
                 "type": "ack",
