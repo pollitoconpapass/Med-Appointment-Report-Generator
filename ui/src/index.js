@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import "./index.css";
 import "./App.css";
 import { API_URL, WS_URL } from "./constants";
@@ -8,7 +15,7 @@ import { RecordingScreen } from "./screens/RecordingScreen";
 import { TranscriptScreen } from "./screens/TranscriptScreen";
 import { ReportScreen } from "./screens/ReportScreen";
 
-// Suppress the ResizeObserver loop error which is a common, harmless issue in some editors
+// Suppress the ResizeObserver loop error
 window.addEventListener("error", (e) => {
   if (
     e.message ===
@@ -26,13 +33,13 @@ window.addEventListener("error", (e) => {
     if (resizeObserverErr) {
       resizeObserverErr.setAttribute("style", "display: none");
     }
-    // Prevent the error from showing up in the console
     e.stopImmediatePropagation();
   }
 });
 
-function App() {
-  const [screen, setScreen] = useState("start");
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sessionId, setSessionId] = useState(null);
   const [language, setLanguage] = useState("en");
   const [transcript, setTranscript] = useState([]);
@@ -58,6 +65,12 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (location.pathname === "/recording" && !sessionId && !isRecording) {
+      navigate("/");
+    }
+  }, [location.pathname, sessionId, isRecording, navigate]);
+
   const startAppointment = async () => {
     try {
       const response = await fetch(`${API_URL}/appointment/start`, {
@@ -67,7 +80,7 @@ function App() {
       });
       const data = await response.json();
       setSessionId(data.session_id);
-      setScreen("recording");
+      navigate("/recording");
       await startRecording(data.session_id);
     } catch (error) {
       console.error("Failed to start appointment:", error);
@@ -184,14 +197,14 @@ function App() {
       });
       const data = await response.json();
       setTranscript(data.transcript);
-      setScreen("transcript");
+      navigate("/transcript");
     } catch (error) {
       console.error("Failed to end appointment:", error);
     }
   };
 
   const handleGenerateReport = async (finalTranscriptContent) => {
-    setScreen("report");
+    navigate("/report");
     setIsGeneratingReport(true);
     setReportText("");
     reportRef.current = "";
@@ -239,43 +252,80 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>MARGe - Medical Appointment Report Generator</h1>
+        <h1 onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
+          MARGe - Medical Appointment Report Generator
+        </h1>
       </header>
 
       <main className="app-main">
-        {screen === "start" && (
-          <StartScreen
-            language={language}
-            setLanguage={setLanguage}
-            onStart={startAppointment}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <StartScreen
+                language={language}
+                setLanguage={setLanguage}
+                onStart={startAppointment}
+              />
+            }
           />
-        )}
-
-        {screen === "recording" && (
-          <RecordingScreen
-            isRecording={isRecording}
-            audioLevel={audioLevel}
-            transcript={transcript}
-            onEnd={endAppointment}
+          <Route
+            path="/recording"
+            element={
+              <RecordingScreen
+                isRecording={isRecording}
+                audioLevel={audioLevel}
+                transcript={transcript}
+                onEnd={endAppointment}
+                onBack={() => {
+                  // Stop any active recording/WS if we go back
+                  if (wsRef.current) wsRef.current.close();
+                  if (
+                    mediaRecorderRef.current &&
+                    mediaRecorderRef.current.state !== "inactive"
+                  ) {
+                    mediaRecorderRef.current.stop();
+                    mediaRecorderRef.current.stream
+                      .getTracks()
+                      .forEach((track) => track.stop());
+                  }
+                  navigate("/");
+                }}
+              />
+            }
           />
-        )}
-
-        {screen === "transcript" && (
-          <TranscriptScreen
-            transcript={transcript}
-            onGenerate={handleGenerateReport}
+          <Route
+            path="/transcript"
+            element={
+              <TranscriptScreen
+                transcript={transcript}
+                onGenerate={handleGenerateReport}
+                onBack={() => navigate("/recording")}
+              />
+            }
           />
-        )}
-
-        {screen === "report" && (
-          <ReportScreen
-            reportText={reportText}
-            isGeneratingReport={isGeneratingReport}
-            onChange={setReportText}
+          <Route
+            path="/report"
+            element={
+              <ReportScreen
+                reportText={reportText}
+                isGeneratingReport={isGeneratingReport}
+                onChange={setReportText}
+                onBack={() => navigate("/transcript")}
+              />
+            }
           />
-        )}
+        </Routes>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

@@ -53,8 +53,40 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 2rem;
+  width: 100%;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.back-button:hover {
+  background: rgba(25, 118, 210, 0.1);
+}
+
+.back-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Start Screen */
