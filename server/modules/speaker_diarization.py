@@ -14,7 +14,7 @@ class SpeakerDiarization:
         elif torch.backends.mps.is_available():
             self.pipeline.to(torch.device("mps")) # -> For Apple Silicon
 
-    def diarize(self, audio_data: torch.Tensor, sample_rate: int = 16000):
+    def diarize(self, audio_data: torch.Tensor, sample_rate: int = 16000, num_speakers: int = None, min_speakers: int = None, max_speakers: int = None):
         # Audio has to be mono and has shape (1, samples)
         if audio_data.dim() == 1:
             audio_data = audio_data.unsqueeze(0)
@@ -22,7 +22,15 @@ class SpeakerDiarization:
             audio_data = torch.mean(audio_data, dim=0, keepdim=True)
             
         # The pipeline expects a dictionary with "waveform" and "sample_rate" when passing a torch tensor directly
-        diarization = self.pipeline({"waveform": audio_data, "sample_rate": sample_rate})
+        params = {}
+        if num_speakers is not None:
+            params["num_speakers"] = num_speakers
+        if min_speakers is not None:
+            params["min_speakers"] = min_speakers
+        if max_speakers is not None:
+            params["max_speakers"] = max_speakers
+
+        diarization = self.pipeline({"waveform": audio_data, "sample_rate": sample_rate}, **params)
         
         if diarization is None:
             return []
