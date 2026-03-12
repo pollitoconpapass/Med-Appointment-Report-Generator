@@ -14,3 +14,6 @@ class Session:
     transcript: List[dict] = field(default_factory=list)
     started_at: str = ""
     sample_rate: int = 16000
+    num_speakers: Optional[int] = 2
+    min_speakers: Optional[int] = None
+    max_speakers: Optional[int] = None

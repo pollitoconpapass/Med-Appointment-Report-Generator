@@ -66,11 +66,17 @@ async def health_check():
 async def start_appointment(data: dict):
     session_id = str(uuid.uuid4())
     language = data.get("language", "en")
+    num_speakers = data.get("num_speakers", 2)
+    min_speakers = data.get("min_speakers")
+    max_speakers = data.get("max_speakers")
     
     sessions[session_id] = Session(
         id=session_id,
         language=language,
-        started_at=datetime.now().isoformat()
+        started_at=datetime.now().isoformat(),
+        num_speakers=num_speakers,
+        min_speakers=min_speakers,
+        max_speakers=max_speakers
     )
     
     return {"session_id": session_id, "status": "started", "language": language}
@@ -188,56 +194,65 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                     # Extract full accumulated chunk
                     audio_chunk = accumulated_audio
                     
-                    # Save to BytesIO (in-memory) and transcribe
-                    audio_buffer = io.BytesIO()
-                    audio_np = audio_chunk.squeeze().numpy()
-                    
-                    # Convert to 16-bit PCM for broader compatibility
-                    audio_int16 = (audio_np * 32767).astype(np.int16)
-                    wavfile.write(audio_buffer, session.sample_rate, audio_int16)
-                    audio_buffer.seek(0)
-                    audio_buffer.name = "audio.wav"
-                    
-                    # Run STT in thread
-                    result = await asyncio.to_thread(
-                        whisper_stt.stt, audio_buffer, language=session.language
-                    )
-                    
-                    # Run Diarization in thread
+                    # Run Diarization first to get speaker segments
                     diarization_result = await asyncio.to_thread(
-                        speaker_diarization.diarize, audio_chunk, session.sample_rate
+                        speaker_diarization.diarize, 
+                        audio_chunk, 
+                        session.sample_rate,
+                        num_speakers=session.num_speakers,
+                        min_speakers=session.min_speakers,
+                        max_speakers=session.max_speakers
                     )
                     
-                    # Determine the primary speaker for this chunk
-                    speaker = "Unknown"
-                    if diarization_result:
-                        # Pick the speaker with the longest duration in this chunk
-                        speaker_durations = {}
-                        for segment in diarization_result:
-                            s = segment["speaker"]
-                            d = segment["end"] - segment["start"]
-                            speaker_durations[s] = speaker_durations.get(s, 0) + d
-                        
-                        if speaker_durations:
-                            speaker = max(speaker_durations, key=speaker_durations.get)
+                    # Process each speaker segment separately
+                    chunk_start_offset = current_audio_duration - (audio_chunk.shape[1] / session.sample_rate)
                     
-                    if result and result.strip():
-                        session.transcript.append({
-                            "speaker": speaker,
-                            "text": result,
-                            "timestamp": 0,
-                            "chunk_start": 0,
-                            "chunk_end": current_audio_duration
-                        })
+                    for segment in diarization_result:
+                        seg_start = segment["start"]
+                        seg_end = segment["end"]
+                        speaker = segment["speaker"]
                         
-                        await websocket.send_json({
-                            "type": "transcript",
-                            "speaker": speaker,
-                            "text": result,
-                            "timestamp": 0
-                        })
+                        # Extract speaker-specific audio segment
+                        start_sample = int(seg_start * session.sample_rate)
+                        end_sample = int(seg_end * session.sample_rate)
+                        speaker_audio = audio_chunk[:, start_sample:end_sample]
+                        
+                        if speaker_audio.shape[1] < session.sample_rate * 0.1:
+                            continue
+                        
+                        # Convert to BytesIO
+                        audio_buffer = io.BytesIO()
+                        audio_np = speaker_audio.squeeze().numpy()
+                        audio_int16 = (audio_np * 32767).astype(np.int16)
+                        wavfile.write(audio_buffer, session.sample_rate, audio_int16)
+                        audio_buffer.seek(0)
+                        audio_buffer.name = "audio.wav"
+                        
+                        # Run STT for this speaker segment
+                        result = await asyncio.to_thread(
+                            whisper_stt.stt, audio_buffer, language=session.language
+                        )
+                        
+                        if result and result.strip():
+                            abs_start = chunk_start_offset + seg_start
+                            abs_end = chunk_start_offset + seg_end
+                            
+                            session.transcript.append({
+                                "speaker": speaker,
+                                "text": result,
+                                "timestamp": abs_start,
+                                "chunk_start": abs_start,
+                                "chunk_end": abs_end
+                            })
+                            
+                            await websocket.send_json({
+                                "type": "transcript",
+                                "speaker": speaker,
+                                "text": result,
+                                "timestamp": abs_start
+                            })
 
-                    print(f"Transcription and diarization completed in {time.time() - start_time} seconds\n")
+                    print(f"Diarization and transcription completed for the chunk in {time.time() - start_time} seconds\n")
                     
                     # Reset accumulated audio
                     accumulated_audio = None
