@@ -49,6 +49,7 @@ function AppContent() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportText, setReportText] = useState("");
+  const [currentReport, setCurrentReport] = useState(null);
 
   const wsRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -82,6 +83,7 @@ function AppContent() {
     setTranscript([]);
     setReportText("");
     reportRef.current = "";
+    setCurrentReport(null);
 
     try {
       const response = await fetch(`${API_URL}/appointment/start`, {
@@ -101,6 +103,7 @@ function AppContent() {
   const handleViewReport = (report) => {
     setReportText(report.content);
     reportRef.current = report.content;
+    setCurrentReport(report);
     navigate("/report", { state: { from: "start" } });
   };
 
@@ -229,6 +232,10 @@ function AppContent() {
     setIsGeneratingReport(true);
     setReportText("");
     reportRef.current = "";
+    setCurrentReport({
+      title: "Medical Report",
+      content: "",
+    });
 
     try {
       const response = await fetch(`${API_URL}/report/generate`, {
@@ -335,6 +342,8 @@ function AppContent() {
             element={
               <ReportScreen
                 reportText={reportText}
+                currentReport={currentReport}
+                setCurrentReport={setCurrentReport}
                 isGeneratingReport={isGeneratingReport}
                 onChange={setReportText}
                 onSave={() => navigate("/")}

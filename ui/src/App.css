@@ -295,10 +295,40 @@ body {
   border-color: var(--primary-light);
 }
 
+.report-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
 .report-card h3 {
   margin: 0;
   color: var(--primary);
   font-size: 1.1rem;
+  flex: 1;
+}
+
+.delete-report-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 5px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -5px;
+  margin-right: -5px;
+}
+
+.delete-report-btn:hover {
+  color: var(--danger);
+  background: rgba(211, 47, 47, 0.1);
 }
 
 .report-card .report-date {
@@ -685,4 +715,32 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Report Screen Title Styles */
+.title-container {
+  flex: 1;
+  margin-left: 20px;
+}
+
+.report-title-input {
+  width: 100%;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 5px 0;
+  color: var(--text);
+  outline: none;
+  transition: border-bottom-color 0.3s;
+}
+
+.report-title-input:focus {
+  border-bottom-color: var(--primary);
+}
+
+.report-title-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
