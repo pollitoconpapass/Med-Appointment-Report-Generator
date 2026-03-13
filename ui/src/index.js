@@ -78,6 +78,10 @@ function AppContent() {
   }, [location.pathname, sessionId, isRecording, navigate]);
 
   const startAppointment = async () => {
+    setTranscript([]);
+    setReportText("");
+    reportRef.current = "";
+
     try {
       const response = await fetch(`${API_URL}/appointment/start`, {
         method: "POST",
@@ -91,6 +95,12 @@ function AppContent() {
     } catch (error) {
       console.error("Failed to start appointment:", error);
     }
+  };
+
+  const handleViewReport = (report) => {
+    setReportText(report.content);
+    reportRef.current = report.content;
+    navigate("/report", { state: { from: "start" } });
   };
 
   const startRecording = async (sessionId) => {
@@ -273,6 +283,7 @@ function AppContent() {
                 language={language}
                 setLanguage={setLanguage}
                 onStart={startAppointment}
+                onViewReport={handleViewReport}
               />
             }
           />
@@ -321,7 +332,14 @@ function AppContent() {
                 reportText={reportText}
                 isGeneratingReport={isGeneratingReport}
                 onChange={setReportText}
-                onBack={() => navigate("/transcript")}
+                onSave={() => navigate("/")}
+                onBack={() => {
+                  if (location.state?.from === "start") {
+                    navigate("/");
+                  } else {
+                    navigate("/transcript");
+                  }
+                }}
               />
             }
           />
