@@ -90,6 +90,14 @@ async def end_appointment(data: dict):
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = sessions[session_id]
+    
+    # Wait for the WebSocket to finish flushing if it's still active
+    # ... prevents returning an incomplete transcript before the final STT finishes
+    wait_time = 0
+    while session.is_active and wait_time < 120: # -> wait up to 2 minutes max.
+        await asyncio.sleep(0.5)
+        wait_time += 0.5
+        
     transcript = session.transcript
     
     del sessions[session_id]
@@ -130,6 +138,7 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
     
     session = sessions[session_id]
     await websocket.accept()
+    session.is_active = True
     
     silence_threshold = 2
     accumulated_audio = None
@@ -276,14 +285,16 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
                 "transcripts_count": len(session.transcript)
             })
             
-    except WebSocketDisconnect:
-        print("WebSocket connection closed. Performing final flush...")
+    except (WebSocketDisconnect, RuntimeError) as e:
+        # Starlette sometimes raises RuntimeError when the connection is closed
+        print(f"WebSocket closed: {type(e).__name__} {e}")
+        print("Performing final flush...")
         if accumulated_audio is not None:
             # Calculate duration for the final chunk
             final_duration = accumulated_audio.shape[1] / session.sample_rate
             await process_audio_chunk(accumulated_audio, final_duration)
     except Exception as e:
-        print(f"Error in websocket_audio: {e}")
+        print(f"Error in websocket_audio: {type(e).__name__}: {e}")
 
         try:
             await websocket.send_json({"type": "error", "message": str(e)})
@@ -294,3 +305,5 @@ async def websocket_audio(websocket: WebSocket, session_id: str):
             await websocket.close(code=1011)
         except Exception:
             pass
+    finally:
+        session.is_active = False

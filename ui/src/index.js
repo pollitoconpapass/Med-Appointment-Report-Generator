@@ -44,6 +44,7 @@ function AppContent() {
   const [language, setLanguage] = useState("en");
   const [transcript, setTranscript] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -188,6 +189,7 @@ function AppContent() {
   };
 
   const endAppointment = async () => {
+    setIsEnding(true);
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream
@@ -217,6 +219,8 @@ function AppContent() {
       navigate("/transcript");
     } catch (error) {
       console.error("Failed to end appointment:", error);
+    } finally {
+      setIsEnding(false);
     }
   };
 
@@ -292,6 +296,7 @@ function AppContent() {
             element={
               <RecordingScreen
                 isRecording={isRecording}
+                isEnding={isEnding}
                 isPaused={isPaused}
                 setIsPaused={setIsPaused}
                 audioLevel={audioLevel}
