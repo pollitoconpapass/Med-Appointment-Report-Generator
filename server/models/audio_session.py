@@ -17,3 +17,4 @@ class Session:
     num_speakers: Optional[int] = 2
     min_speakers: Optional[int] = None
     max_speakers: Optional[int] = None
+    is_active: bool = False

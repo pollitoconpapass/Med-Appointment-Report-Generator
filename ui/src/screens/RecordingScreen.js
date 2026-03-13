@@ -1,5 +1,6 @@
 export const RecordingScreen = ({
   isRecording,
+  isEnding,
   isPaused,
   setIsPaused,
   audioLevel,
@@ -22,7 +23,11 @@ export const RecordingScreen = ({
   return (
     <div className="recording-screen">
       <div className="screen-header">
-        <button className="back-button" onClick={handleBack}>
+        <button
+          className="back-button"
+          onClick={handleBack}
+          disabled={isEnding}
+        >
           ← Back
         </button>
         <h2>Recording Session</h2>
@@ -37,15 +42,22 @@ export const RecordingScreen = ({
               style={{
                 height: `${Math.max(10, audioLevel * 100 * Math.random())}%`,
                 animationDelay: `${i * 0.05}s`,
-                background: isPaused
-                  ? "#9e9e9e"
-                  : "linear-gradient(to top, var(--primary), var(--primary-light))",
+                background:
+                  isPaused || isEnding
+                    ? "#9e9e9e"
+                    : "linear-gradient(to top, var(--primary), var(--primary-light))",
               }}
             />
           ))}
         </div>
-        <p className={`listening-text ${isPaused ? "paused" : ""}`}>
-          {isPaused ? "Paused" : isRecording ? "Listening..." : "Starting..."}
+        <p className={`listening-text ${isPaused || isEnding ? "paused" : ""}`}>
+          {isEnding
+            ? "Processing final audio..."
+            : isPaused
+              ? "Paused"
+              : isRecording
+                ? "Listening..."
+                : "Starting..."}
         </p>
         <p className="transcript-preview">
           {transcript
@@ -59,14 +71,14 @@ export const RecordingScreen = ({
         <button
           className={`pause-button ${isPaused ? "resuming" : ""}`}
           onClick={() => setIsPaused(!isPaused)}
-          disabled={!isRecording}
+          disabled={!isRecording || isEnding}
         >
           {isPaused ? "▶ Resume" : "⏸ Pause"}
         </button>
 
-        <button className="end-button" onClick={onEnd}>
-          <span className="hangup-icon"> 📞</span>
-          End Appointment
+        <button className="end-button" onClick={onEnd} disabled={isEnding}>
+          <span className="hangup-icon"> {isEnding ? "⏳" : "📞"}</span>
+          {isEnding ? "Ending..." : "End Appointment"}
         </button>
       </div>
     </div>
