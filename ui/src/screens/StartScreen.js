@@ -35,6 +35,15 @@ export const StartScreen = ({
     onStart();
   };
 
+  const handleDelete = (e, reportId) => {
+    e.stopPropagation(); // Prevent opening the report when clicking delete
+    if (window.confirm("Are you sure you want to delete this report?")) {
+      const updatedReports = reports.filter((r) => r.id !== reportId);
+      localStorage.setItem("marge_reports", JSON.stringify(updatedReports));
+      setReports(updatedReports);
+    }
+  };
+
   return (
     <div className="start-screen">
       <div className="start-screen-header">
@@ -54,7 +63,16 @@ export const StartScreen = ({
               className="report-card"
               onClick={() => onViewReport && onViewReport(report)}
             >
-              <h3>Medical Report</h3>
+              <div className="report-card-header">
+                <h3>{report.title || "Medical Report"}</h3>
+                <button
+                  className="delete-report-btn"
+                  onClick={(e) => handleDelete(e, report.id)}
+                  title="Delete Report"
+                >
+                  &times;
+                </button>
+              </div>
               <span className="report-date">{formatDate(report.date)}</span>
               <div className="report-preview">
                 {report.content.substring(0, 150)}...

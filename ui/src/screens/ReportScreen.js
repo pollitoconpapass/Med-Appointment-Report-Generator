@@ -1,23 +1,33 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { TiptapEditor } from "../components/TiptapEditor";
 
 export const ReportScreen = ({
   reportText,
+  currentReport,
+  setCurrentReport,
   isGeneratingReport,
   onChange,
   onBack,
   onSave,
 }) => {
-  const reportRef = useRef("");
+  const reportRef = useRef(reportText);
+  const [title, setTitle] = useState(currentReport?.title || "Medical Report");
+
+  useEffect(() => {
+    if (currentReport?.title) {
+      setTitle(currentReport.title);
+    }
+  }, [currentReport]);
 
   const handleSave = () => {
     const content = isGeneratingReport
       ? reportText
       : reportRef.current || reportText;
 
-    const newReport = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
+    const reportData = {
+      id: currentReport?.id || Date.now().toString(),
+      date: currentReport?.date || new Date().toISOString(),
+      title: title,
       content: content,
     };
 
@@ -25,7 +35,18 @@ export const ReportScreen = ({
       const existingReports = JSON.parse(
         localStorage.getItem("marge_reports") || "[]",
       );
-      const updatedReports = [newReport, ...existingReports];
+
+      let updatedReports;
+      if (currentReport?.id) {
+        // Update existing report
+        updatedReports = existingReports.map((r) =>
+          r.id === currentReport.id ? reportData : r,
+        );
+      } else {
+        // Add new report
+        updatedReports = [reportData, ...existingReports];
+      }
+
       localStorage.setItem("marge_reports", JSON.stringify(updatedReports));
 
       alert("Report saved successfully!");
@@ -46,7 +67,16 @@ export const ReportScreen = ({
         >
           ← Back
         </button>
-        <h2>Medical Report</h2>
+        <div className="title-container">
+          <input
+            type="text"
+            className="report-title-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Report Title"
+            disabled={isGeneratingReport}
+          />
+        </div>
       </div>
       <p className="hint">
         {isGeneratingReport
