@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dataclasses import dataclass, field
 import torch
 
@@ -18,3 +18,8 @@ class Session:
     min_speakers: Optional[int] = None
     max_speakers: Optional[int] = None
     is_active: bool = False
+
+
+# Shared in-memory store of active sessions (populated on start, removed on end)
+# All route modules import this instead of maintaining separate dicts.
+active_sessions: Dict[str, "Session"] = {}
