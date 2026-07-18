@@ -36,7 +36,8 @@ Microphone Input
  Structured Medical Report (Markdown format)
       ↓
  Editable Report UI  ←— doctor reviews, edits, saves (using TipTap)
- ```
+```
+
 ## Project Plan
 
 ### Websocket: `/ws/audio`
@@ -50,6 +51,6 @@ streams - Client raw audio (e.g., 1-second chunks)
 
 ### REST Endpoins
 
-1. POST `/appointment/start` - Initialize session, laguage, buffer
-2. POST `/appointment/end` - Stop, save transcript return full transcript
-3. POST `/report/generate` - Generate medical report from full transcript (streaming)
+1. POST `/api/appointments/start` - Initialize session, laguage, buffer
+2. POST `/api/appointments/end` - Stop, save transcript return full transcript
+3. POST `/api/reports/generate` - Generate medical report from full transcript (streaming)
