@@ -33,6 +33,26 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
     return user
 
 
+async def get_optional_user(authorization: str = Header(None)) -> dict | None:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[7:]
+    user_id = _tokens.get(token)
+    if user_id is None:
+        return None
+    return db.get_user_by_id(user_id)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization[7:]
+    user_id = _tokens.get(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
 @router.post("/register")
 async def register(data: dict):
     username = data.get("username")

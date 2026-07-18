@@ -20,7 +20,7 @@ whisper_stt = WhisperSTT(api_key=os.getenv("GROQ_API_KEY"))
 groq_llm = GroqLLM(api_key=os.getenv("GROQ_API_KEY"))
 speaker_diarization = SpeakerDiarization(api_key=os.getenv("HUGGING_FACE_API_KEY"))
 
-router.websocket("/audio/{session_id}")
+@router.websocket("/audio/{session_id}")
 async def websocket_audio(websocket: WebSocket, session_id: str):
     if session_id not in active_sessions:
         await websocket.close(code=4004, reason="Session not found")

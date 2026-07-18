@@ -2,15 +2,19 @@ import uuid
 import asyncio
 from datetime import datetime
 from models.audio_session import Session, active_sessions
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from modules.db_handling import Database
+from routes.auth import get_optional_user
 
 db = Database()
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
 
 @router.post("/start")
-async def start_appointment(data: dict):
+async def start_appointment(
+    data: dict,
+    user: dict | None = Depends(get_optional_user),
+):
     session_id = str(uuid.uuid4())
     language = data.get("language", "en")
     num_speakers = data.get("num_speakers", 2)
@@ -28,6 +32,7 @@ async def start_appointment(data: dict):
 
     db.create_session(
         session_id=session_id,
+        user_id=user["id"] if user else None,
         language=language,
         num_speakers=num_speakers,
         min_speakers=min_speakers,
