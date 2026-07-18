@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { API_URL } from "../constants";
 
 export const ReportScreen = ({
   reportText,
@@ -9,9 +10,11 @@ export const ReportScreen = ({
   onChange,
   onBack,
   onSave,
+  authHeaders,
 }) => {
   const reportRef = useRef(reportText);
   const [title, setTitle] = useState(currentReport?.title || "Medical Report");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (currentReport?.title) {
@@ -19,41 +22,35 @@ export const ReportScreen = ({
     }
   }, [currentReport]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const content = isGeneratingReport
       ? reportText
       : reportRef.current || reportText;
 
-    const reportData = {
-      id: currentReport?.id || Date.now().toString(),
-      date: currentReport?.date || new Date().toISOString(),
-      title: title,
-      content: content,
-    };
+    if (!currentReport?.id) {
+      alert("Report was not saved to server. Please generate a report first.");
+      return;
+    }
 
+    setSaving(true);
     try {
-      const existingReports = JSON.parse(
-        localStorage.getItem("marge_reports") || "[]",
-      );
-
-      let updatedReports;
-      if (currentReport?.id) {
-        // Update existing report
-        updatedReports = existingReports.map((r) =>
-          r.id === currentReport.id ? reportData : r,
-        );
+      const res = await fetch(`${API_URL}/api/reports/${currentReport.id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        alert("Report saved successfully!");
+        if (onSave) onSave();
       } else {
-        // Add new report
-        updatedReports = [reportData, ...existingReports];
+        const err = await res.json();
+        alert(err.detail || "Failed to save report.");
       }
-
-      localStorage.setItem("marge_reports", JSON.stringify(updatedReports));
-
-      alert("Report saved successfully!");
-      if (onSave) onSave();
     } catch (error) {
       console.error("Failed to save report:", error);
       alert("Failed to save report.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -100,10 +97,10 @@ export const ReportScreen = ({
         <button
           className="save-button"
           onClick={handleSave}
-          disabled={isGeneratingReport}
-          style={{ opacity: isGeneratingReport ? 0.5 : 1 }}
+          disabled={isGeneratingReport || saving}
+          style={{ opacity: isGeneratingReport || saving ? 0.5 : 1 }}
         >
-          Save Report
+          {saving ? "Saving..." : "Save Report"}
         </button>
       </div>
     </div>
