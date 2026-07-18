@@ -1,20 +1,31 @@
 import React, { useEffect, useState } from "react";
+import { API_URL } from "../constants";
 
 export const StartScreen = ({
   language,
   setLanguage,
   onStart,
   onViewReport,
+  authHeaders,
 }) => {
   const [reports, setReports] = useState([]);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   useEffect(() => {
-    const savedReports = JSON.parse(
-      localStorage.getItem("marge_reports") || "[]",
-    );
-    setReports(savedReports);
-  }, []);
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/reports/`, {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setReports(data.reports);
+        }
+      } catch (err) {
+        console.error("Failed to fetch reports:", err);
+      }
+    })();
+  }, [authHeaders]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString(undefined, {
@@ -35,12 +46,19 @@ export const StartScreen = ({
     onStart();
   };
 
-  const handleDelete = (e, reportId) => {
-    e.stopPropagation(); // Prevent opening the report when clicking delete
-    if (window.confirm("Are you sure you want to delete this report?")) {
-      const updatedReports = reports.filter((r) => r.id !== reportId);
-      localStorage.setItem("marge_reports", JSON.stringify(updatedReports));
-      setReports(updatedReports);
+  const handleDelete = async (e, reportId) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this report?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/reports/${reportId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        setReports((prev) => prev.filter((r) => r.id !== reportId));
+      }
+    } catch (err) {
+      console.error("Failed to delete report:", err);
     }
   };
 
@@ -73,10 +91,14 @@ export const StartScreen = ({
                   &times;
                 </button>
               </div>
-              <span className="report-date">{formatDate(report.date)}</span>
-              <div className="report-preview">
-                {report.content.substring(0, 150)}...
-              </div>
+              <span className="report-date">
+                {formatDate(report.created_at)}
+              </span>
+              <span
+                className={`report-status status-${report.status || "draft"}`}
+              >
+                {report.status || "draft"}
+              </span>
             </div>
           ))}
         </div>

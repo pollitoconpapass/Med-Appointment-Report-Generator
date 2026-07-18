@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import {
   BrowserRouter as Router,
@@ -14,8 +14,9 @@ import { StartScreen } from "./screens/StartScreen";
 import { RecordingScreen } from "./screens/RecordingScreen";
 import { TranscriptScreen } from "./screens/TranscriptScreen";
 import { ReportScreen } from "./screens/ReportScreen";
+import { SignInScreen } from "./screens/SignInScreen";
+import { RegisterScreen } from "./screens/RegisterScreen";
 
-// Suppress the ResizeObserver loop error
 window.addEventListener("error", (e) => {
   if (
     e.message ===
@@ -51,6 +52,13 @@ function AppContent() {
   const [reportText, setReportText] = useState("");
   const [currentReport, setCurrentReport] = useState(null);
 
+  // Auth state
+  const [token, setToken] = useState(localStorage.getItem("marge_token"));
+  const [user, setUser] = useState(() => {
+    const raw = localStorage.getItem("marge_user");
+    return raw ? JSON.parse(raw) : null;
+  });
+
   const wsRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const analyserRef = useRef(null);
@@ -73,11 +81,78 @@ function AppContent() {
     };
   }, []);
 
+  const PROTECTED_PATHS = ["/", "/recording", "/transcript", "/report"];
+
   useEffect(() => {
     if (location.pathname === "/recording" && !sessionId && !isRecording) {
       navigate("/");
     }
   }, [location.pathname, sessionId, isRecording, navigate]);
+
+  // Auth guard — redirect to /login if not authenticated
+  useEffect(() => {
+    if (!token && PROTECTED_PATHS.includes(location.pathname)) {
+      navigate("/login", { replace: true });
+    }
+  }, [token, location.pathname, navigate]);
+
+  // Redirect already-authenticated users away from login/register
+  useEffect(() => {
+    if (token && ["/login", "/register"].includes(location.pathname)) {
+      navigate("/", { replace: true });
+    }
+  }, [token, location.pathname, navigate]);
+
+  const authHeaders = useCallback(() => {
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  }, [token]);
+
+  const handleLogin = async (username, password) => {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Login failed");
+    }
+    const data = await res.json();
+    localStorage.setItem("marge_token", data.token);
+    localStorage.setItem("marge_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+    navigate("/", { replace: true });
+  };
+
+  const handleRegister = async (username, email, password) => {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Registration failed");
+    }
+    return res.json();
+  };
+
+  const handleLogout = () => {
+    if (token) {
+      fetch(`${API_URL}/api/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    localStorage.removeItem("marge_token");
+    localStorage.removeItem("marge_user");
+    setToken(null);
+    setUser(null);
+    navigate("/");
+  };
 
   const startAppointment = async () => {
     setTranscript([]);
@@ -86,9 +161,9 @@ function AppContent() {
     setCurrentReport(null);
 
     try {
-      const response = await fetch(`${API_URL}/appointment/start`, {
+      const response = await fetch(`${API_URL}/api/appointments/start`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ language }),
       });
       const data = await response.json();
@@ -100,11 +175,21 @@ function AppContent() {
     }
   };
 
-  const handleViewReport = (report) => {
-    setReportText(report.content);
-    reportRef.current = report.content;
-    setCurrentReport(report);
-    navigate("/report", { state: { from: "start" } });
+  const handleViewReport = async (report) => {
+    try {
+      const res = await fetch(`${API_URL}/api/reports/${report.id}`, {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const full = await res.json();
+        setReportText(full.content);
+        reportRef.current = full.content;
+        setCurrentReport(full);
+        navigate("/report", { state: { from: "start" } });
+      }
+    } catch (err) {
+      console.error("Failed to fetch report:", err);
+    }
   };
 
   const startRecording = async (sessionId) => {
@@ -212,9 +297,9 @@ function AppContent() {
     setIsRecording(false);
 
     try {
-      const response = await fetch(`${API_URL}/appointment/end`, {
+      const response = await fetch(`${API_URL}/api/appointments/end`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ session_id: sessionId }),
       });
       const data = await response.json();
@@ -238,10 +323,13 @@ function AppContent() {
     });
 
     try {
-      const response = await fetch(`${API_URL}/report/generate`, {
+      const response = await fetch(`${API_URL}/api/reports/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: finalTranscriptContent }),
+        headers: authHeaders(),
+        body: JSON.stringify({
+          transcript: finalTranscriptContent,
+          session_id: sessionId,
+        }),
       });
 
       const reader = response.body.getReader();
@@ -264,6 +352,13 @@ function AppContent() {
                 reportRef.current = reportContent;
                 setReportText(reportContent);
               }
+              if (data.done && data.report_id) {
+                setCurrentReport((prev) => ({
+                  ...prev,
+                  id: data.report_id,
+                  content: reportContent,
+                }));
+              }
             } catch (e) {
               console.error("Failed to parse JSON:", e);
             }
@@ -283,6 +378,15 @@ function AppContent() {
         <h1 onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           MARGe - Medical Appointment Report Generator
         </h1>
+        {user && (
+          <span
+            className="user-badge"
+            onClick={handleLogout}
+            title="Click to logout"
+          >
+            {user.username} ⏻
+          </span>
+        )}
       </header>
 
       <main className="app-main">
@@ -295,6 +399,25 @@ function AppContent() {
                 setLanguage={setLanguage}
                 onStart={startAppointment}
                 onViewReport={handleViewReport}
+                authHeaders={authHeaders}
+              />
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <SignInScreen
+                onLogin={handleLogin}
+                onNavigateRegister={() => navigate("/register")}
+              />
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <RegisterScreen
+                onRegister={handleRegister}
+                onNavigateSignIn={() => navigate("/login")}
               />
             }
           />
@@ -310,7 +433,6 @@ function AppContent() {
                 transcript={transcript}
                 onEnd={endAppointment}
                 onBack={() => {
-                  // Stop any active recording/WS if we go back
                   if (wsRef.current) wsRef.current.close();
                   if (
                     mediaRecorderRef.current &&
@@ -347,6 +469,7 @@ function AppContent() {
                 isGeneratingReport={isGeneratingReport}
                 onChange={setReportText}
                 onSave={() => navigate("/")}
+                authHeaders={authHeaders}
                 onBack={() => {
                   if (location.state?.from === "start") {
                     navigate("/");
