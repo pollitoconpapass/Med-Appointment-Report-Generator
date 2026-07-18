@@ -29,12 +29,13 @@ async def generate_report(data: dict):
     if not transcript:
         raise HTTPException(status_code=400, detail="Transcript is required")
 
-    formatted = _format_transcript(transcript)
+    if isinstance(transcript, list):
+        transcript = _format_transcript(transcript)
 
     async def generate():
         buffer = []
         try:
-            for chunk in groq_llm.llm(formatted):
+            for chunk in groq_llm.llm(transcript):
                 if chunk:
                     buffer.append(chunk)
                     yield f"data: {json.dumps({'content': chunk})}\n\n"
@@ -66,3 +67,29 @@ async def get_report(report_id: int, user: dict = Depends(get_current_user)):
     if report["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Not your report")
     return report
+
+
+@router.put("/{report_id}")
+async def update_report(
+    report_id: int, data: dict, user: dict = Depends(get_current_user)
+):
+    report = db.get_report_with_session(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
+    content = data.get("content", report["content"])
+    status = data.get("status")
+    db.update_report(report_id, content, status=status)
+    return {"message": "Report updated"}
+
+
+@router.delete("/{report_id}")
+async def delete_report(report_id: int, user: dict = Depends(get_current_user)):
+    report = db.get_report_with_session(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
+    db.delete_report(report_id)
+    return {"message": "Report deleted"}
